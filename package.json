@@ -1,11 +1,30 @@
 {
   "name": "conduit",
-  "module": "index.ts",
-  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "example"
+  ],
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
+    "dev": "bun run build && (bun run --cwd packages/core dev & bun run --cwd packages/slack dev & bun run --cwd packages/whatsapp dev & bun run --cwd example dev & wait)",
+    "build": "bun --filter './packages/*' build",
+    "test": "bun test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check ."
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "lint-staged": "^16.4.0",
+    "oxfmt": "^0.41.0",
+    "oxlint": "^1.56.0"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{css,html,js,json,jsx,md,mdx,ts,tsx,yaml,yml}": "oxfmt --write --no-error-on-unmatched-pattern"
   }
 }

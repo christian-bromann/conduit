@@ -1,0 +1,22 @@
+{
+  "name": "@conduit/core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node",
+    "dev": "bun build ./src/index.ts --outdir ./dist --target node --watch"
+  },
+  "dependencies": {
+    "@langchain/langgraph-sdk": "^1.7.5",
+    "hono": "^4.12.8"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

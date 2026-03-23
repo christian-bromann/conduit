@@ -1,0 +1,10 @@
+{
+  "node_version": "22",
+  "graphs": {
+    "agent": "./agent.ts:agent"
+  },
+  "env": ".env",
+  "http": {
+    "app": "./conduit.ts:app"
+  }
+}
