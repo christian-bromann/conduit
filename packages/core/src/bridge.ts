@@ -11,7 +11,8 @@ export class AgentBridge {
   private assistantId?: string;
 
   constructor(config?: BridgeConfig) {
-    this.client = new Client({ apiUrl: config?.apiUrl });
+    const apiUrl = config?.apiUrl ?? process.env.LANGGRAPH_API_URL;
+    this.client = new Client({ apiUrl });
     this.assistantId = config?.assistantId;
   }
 
