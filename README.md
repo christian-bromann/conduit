@@ -69,13 +69,126 @@ app.route('/', conduit);
 export { app };
 ```
 
-> **Have Python custom routes?** LangGraph's `http.app` only accepts a single app, and it must match your agent's language — a Python deployment uses [Starlette/FastAPI](https://docs.langchain.com/langsmith/custom-routes), while a JS/TS deployment uses Hono. You can't mix a Python `http.app` with Conduit's Hono app in the same config. Use **Standalone mode** below instead: keep your Python custom routes in `http.app`, and run Conduit as a separate service that connects to your agent via the SDK.
-
 See the [`example/`](./example) directory for a complete working setup.
+
+## Multi-language apps (gateway mode)
+
+Need extensions in different languages? `createGateway()` lets you serve multiple apps — **regardless of runtime** — behind a single port. In-process Hono apps are mounted directly; external-runtime apps (Python, Go, etc.) are spawned as child processes and reverse-proxied automatically.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Gateway (single port)                              │
+│                                                     │
+│  /conduit/*   → Conduit Hono app (in-process)       │
+│  /dashboard/* → Python dashboard (child process)    │
+│  /metrics/*   → Go metrics server (child process)   │
+│  /gateway/health → gateway health check             │
+└─────────────────────────────────────────────────────┘
+```
+
+```ts
+// gateway.ts
+import { createGateway } from '@conduit/core';
+import { app as whatsapp } from '@conduit/whatsapp';
+
+const gateway = createGateway({
+  apps: [
+    // In-process: Conduit connectors (Hono / JS/TS)
+    { path: '/conduit', app: whatsapp },
+
+    // External: Python dashboard served as a child process
+    {
+      path: '/dashboard',
+      runtime: 'python',
+      command: 'python extensions/dashboard.py',
+    },
+  ],
+});
+
+export const { app } = gateway;
+```
+
+Use the gateway as your `http.app` in `langgraph.json`:
+
+```json
+{
+  "http": {
+    "app": "./gateway.ts:app"
+  }
+}
+```
+
+Or run it standalone:
+
+```ts
+await gateway.start(); // spawns external processes
+
+Bun.serve({
+  port: 3000,
+  fetch: app.fetch,
+});
+```
+
+The gateway assigns each external app its own internal port (starting at 9100 by default), injects `PORT` and `HOST` into the child process environment, and waits for the process to accept connections before proxying traffic. Request paths are rewritten so the external app sees requests relative to its own root (e.g. a request to `/dashboard/api/status` arrives at the Python app as `/api/status`).
+
+### How external apps work
+
+Any HTTP server that reads `PORT` from the environment works as an external app. Here's a minimal Python example:
+
+```python
+# extensions/dashboard.py
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'Hello from Python!')
+
+port = int(os.environ.get('PORT', '8001'))
+HTTPServer(('127.0.0.1', port), Handler).serve_forever()
+```
+
+### Gateway health check
+
+`GET /gateway/health` returns the status of all mounted apps:
+
+```json
+{
+  "status": "ok",
+  "apps": [
+    { "path": "/conduit", "type": "in-process" },
+    { "path": "/dashboard", "type": "external", "runtime": "python" }
+  ]
+}
+```
+
+### Proposed `langgraph.json` multi-app format
+
+Today, `langgraph.json` accepts a single `http.app` entry point. We propose extending it with an `http.apps` array so that LangGraph deployments can natively declare multiple apps in different runtimes:
+
+```json
+{
+  "graphs": { "agent": "./agent.ts:agent" },
+  "http": {
+    "apps": [
+      { "path": "/conduit", "app": "./conduit.ts:app", "runtime": "node" },
+      { "path": "/dashboard", "app": "./extensions/dashboard.py", "runtime": "python" }
+    ]
+  }
+}
+```
+
+Until this format is supported by the LangGraph CLI, use `createGateway()` as the single `http.app` to achieve the same result today.
+
+See [`example/gateway.ts`](./example/gateway.ts) and [`example/extensions/dashboard.py`](./example/extensions/dashboard.py) for a working multi-language setup.
 
 ## Quick start — Standalone mode (Python or any agent)
 
 If your agent is written in Python (or any other language), or you already have [custom routes](https://docs.langchain.com/langsmith/custom-routes) in your `http.app` and don't want to replace them, run Conduit as a separate service that connects to your agent via the LangGraph SDK.
+
+> **Tip:** If you want to co-locate Conduit with Python extensions in the _same_ deployment, see [Multi-language apps (gateway mode)](#multi-language-apps-gateway-mode) above.
 
 This works because Conduit never calls your agent directly — it uses the LangGraph SDK over HTTP, so it can run anywhere that can reach your agent's API.
 

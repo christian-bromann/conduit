@@ -276,6 +276,30 @@ bun run deploy:no-wait
 
 All connector secrets (`SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `WHATSAPP_ACCESS_TOKEN`, etc.) and `ANTHROPIC_API_KEY` are automatically forwarded as deployment secrets when present in the environment.
 
+## Multi-language gateway
+
+The gateway lets you serve Conduit connectors alongside apps written in other languages (Python, Go, etc.) behind a single port.
+
+See [`gateway.ts`](./gateway.ts) for the TypeScript entry point and [`extensions/dashboard.py`](./extensions/dashboard.py) for a sample Python extension.
+
+To use the gateway as your `http.app`:
+
+```json
+{
+  "http": {
+    "app": "./gateway.ts:app"
+  }
+}
+```
+
+Or run it standalone:
+
+```bash
+LANGGRAPH_API_URL=http://localhost:2024 bun run gateway.ts
+```
+
+A proposed `langgraph.json` format with native multi-app support is in [`langgraph-multi-app.json`](./langgraph-multi-app.json).
+
 ## Single connector usage
 
 If you only need one connector, point `http.app` directly at the package:

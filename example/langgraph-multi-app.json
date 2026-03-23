@@ -1,0 +1,21 @@
+{
+  "node_version": "22",
+  "graphs": {
+    "agent": "./agent.ts:agent"
+  },
+  "env": ".env",
+  "http": {
+    "apps": [
+      {
+        "path": "/conduit",
+        "app": "./conduit.ts:app",
+        "runtime": "node"
+      },
+      {
+        "path": "/dashboard",
+        "app": "./extensions/dashboard.py",
+        "runtime": "python"
+      }
+    ]
+  }
+}
